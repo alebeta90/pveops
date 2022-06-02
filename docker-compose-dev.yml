@@ -1,0 +1,31 @@
+version: '3'
+
+services:
+    app:
+        image: "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}:latest"
+        environment:
+            PVE_USER: ${PVE_USER}
+            PVE_PASS: ${PVE_PASS}
+            MM_TOKEN: ${MM_TOKEN}
+        ports:
+            - "8000"
+        networks:
+            - traefik-net
+            - default
+        deploy:
+            labels:
+                - "traefik.enable=true"
+                - "traefik.docker.network=traefik-net"
+                - "traefik.http.routers.pveops.rule=Host(`pveops.example.com`)"
+                - "traefik.http.routers.pveops.entrypoints=https"
+                - "traefik.http.services.pveops.loadbalancer.server.port=8000"
+                - "traefik.http.routers.pveops.tls.certresolver=certbot"
+                - "traefik.http.middlewares.pveops.compress=true"
+                - "traefik.http.middlewares.pveops.headers.accesscontrolmaxage=100"
+                - "traefik.http.middlewares.pveops.headers.addvaryheader=true"
+
+networks:
+    default:
+        driver: overlay
+    traefik-net:
+        external: true

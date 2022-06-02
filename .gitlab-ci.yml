@@ -1,0 +1,55 @@
+before_script:
+    - 'which ssh-agent || ( apk update && apk add openssh-client )'
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - touch ~/.ssh/known_hosts
+    - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+  
+stages:
+     - build-go
+     - build-docker
+     - deploy
+    
+build-go:
+    stage: build-go
+    image: golang:1.18-alpine
+    script:
+      - go build -o pveops
+    artifacts:
+      paths:
+        - pveops
+
+build-docker:
+    stage: build-docker
+    image: docker:git
+    variables:
+      DOCKER_DRIVER: overlay
+    services:
+      - docker:dind
+    script:
+      - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN ${CI_REGISTRY}
+      - docker build --no-cache -t ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}:latest .
+      - docker push ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}:latest
+    only:
+      - master
+  
+deploy:
+      stage: deploy
+      variables:
+        DOCKER_HOST: ssh://docker@dockerswarm-cluster
+        SERVICE_NAME: pveops
+        PVE_USER: ${PVE_USER}
+        PVE_PASS: ${PVE_PASS}
+        MM_TOKEN: ${MM_TOKEN}
+      image: docker:latest
+      script:
+        - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
+        - docker pull ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}:latest
+        - docker stack deploy --prune --with-registry-auth --compose-file=docker-compose-dev.yml ${SERVICE_NAME}
+      environment:
+        name: production
+        url: https://pveops.example.com
+      only:
+        - master
