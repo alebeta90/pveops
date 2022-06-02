@@ -10,6 +10,11 @@ We use the Golang module [go-proxmox](https://github.com/luthermonson/go-proxmox
 * Slack _TODO_
 * Google Chat _TODO_
 
+## ToDo
+
+* Action verification - Certain actions like deleting a VM, might need to be approved by to users to apply the 4 eyes principel.
+* ACL. Access Control for users who can use the slash command.
+
 ## Installation
 
 ### Environment Variables
